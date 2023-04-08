@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace MeDirectMicroservice.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20230408151217_CreateIdentitySchema")]
-    partial class CreateIdentitySchema
+    [Migration("20230408185508_Initial")]
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -63,6 +63,10 @@ namespace MeDirectMicroservice.Migrations
 
                     b.Property<double>("TradedAmount")
                         .HasColumnType("float");
+
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 

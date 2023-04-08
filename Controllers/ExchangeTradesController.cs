@@ -13,6 +13,10 @@ using Newtonsoft.Json.Linq;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.CodeAnalysis;
 using Newtonsoft.Json;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using NuGet.Protocol;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace MeDirectMicroservice.Controllers
 {
@@ -20,6 +24,8 @@ namespace MeDirectMicroservice.Controllers
     public class ExchangeTradesController : Controller
     {
         private readonly IMemoryCache _memoryCache;
+
+        private readonly UserManager<ApplicationUser> _userManager;
 
         private readonly ApplicationDbContext _context;
         private string baseUrl = "https://api.apilayer.com/exchangerates_data/";
@@ -44,8 +50,10 @@ namespace MeDirectMicroservice.Controllers
         // GET: ExchangeTrades
         public async Task<IActionResult> Index()
         {
-              return _context.ExchangeTrades != null ? 
-                          View(await _context.ExchangeTrades.ToListAsync()) :
+            var message = TempData["message"] as string;
+            ViewBag.Limit = message;
+            return _context.ExchangeTrades != null ? 
+                          View(await _context.ExchangeTrades.Where(s => s.UserName.Equals(User.Identity.Name)).ToListAsync()) :
                           Problem("Entity set 'ApplicationDbContext.ExchangeTrades'  is null.");
         }
 
@@ -67,16 +75,20 @@ namespace MeDirectMicroservice.Controllers
             return View(exchangeTrade);
         }
 
+        [Authorize]
         // GET: ExchangeTrades/Create
         public IActionResult Create()
         {
             //List<Currency> list = new List<Currency>();
-            if (_memoryCache.TryGetValue(cacheKey, out IEnumerable<Currency> currencies))
+            if (_memoryCache.TryGetValue(cacheKey, out List<string> currencies))
             {
                 Console.WriteLine("Found currencies in Cache");
+                Console.WriteLine("LOADING currencies FROM Cache");
+                ViewBag.symbols = currencies.AsEnumerable();
             }
             else 
             {
+                Console.WriteLine("LOADING currencies FROM API");
                 //List<Currency> list = new List<Currency>();
                 List<string> list = new List<string>();
                 var client = new RestClient(baseUrl + "symbols");
@@ -86,10 +98,10 @@ namespace MeDirectMicroservice.Controllers
                 request.AddHeader("apikey", "0VLlhN0Nmh11ulWksWNhl1C9OPqY1DSh");
 
                 var response = client.Execute(request);
-                Console.WriteLine(response.Content);
+                //Console.WriteLine(response.Content);
                 dynamic rsp = JObject.Parse(response.Content);
-                Console.WriteLine(response.Content);
-                Console.WriteLine(rsp.symbols.ToString());
+                //Console.WriteLine(response.Content);
+                //Console.WriteLine(rsp.symbols.ToString());
                 //foreach
                 //currencies = JsonConvert.DeserializeObject<List<Currency>>(rsp.symbols);
                 var cd = JsonConvert.DeserializeObject<Dictionary<string,string>>(rsp.symbols.ToString());
@@ -100,10 +112,10 @@ namespace MeDirectMicroservice.Controllers
                     //curr.CurrencySymbol = key;
                     //curr.CountryName = cd[key];
                     list.Add(cd[key]+" ("+key+")");
-                    Console.WriteLine(key+" : " + cd[key]);
+                    //Console.WriteLine(key+" : " + cd[key]);
                 }
                 var cacheEntryOptions = new MemoryCacheEntryOptions()
-                        .SetSlidingExpiration(TimeSpan.FromSeconds(45))
+                        .SetSlidingExpiration(TimeSpan.FromSeconds(3600))
                         .SetAbsoluteExpiration(TimeSpan.FromSeconds(3600))
                         .SetPriority(CacheItemPriority.Normal);
                 _memoryCache.Set(cacheKey, list, cacheEntryOptions);
@@ -111,16 +123,23 @@ namespace MeDirectMicroservice.Controllers
                 return View();
             }
            
-            return View(currencies);
+            return View();
         }
 
         // POST: ExchangeTrades/Create
         // To protect from overposting attacks, enable the specific properties you want to bind to.
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+        [Authorize]
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(ExchangeTrade exchangeTrade, string CurrencyFrom, string CurrencyTo)
         {
+            if (TradeLimitExceeded())
+            {
+                //ViewBag.Limit = "Hourly limit exceeded.";
+                TempData["message"] = "Hourly limit exceeded. Please wait an hour past your last trade making another exchange trade";
+                return RedirectToAction(nameof(Index));
+            }
             //https://api.apilayer.com/exchangerates_data/convert?
             Console.WriteLine("CurrencyFrom: " + CurrencyFrom.Split('(', ')')[1]);
             Console.WriteLine("CurrencyTo: " + CurrencyTo.Split('(', ')')[1]);
@@ -134,23 +153,26 @@ namespace MeDirectMicroservice.Controllers
             request.AddHeader("apikey", "0VLlhN0Nmh11ulWksWNhl1C9OPqY1DSh");
 
             var response = client.Execute(request);
-            Console.WriteLine(response.Content);
+            //Console.WriteLine(response.Content);
             dynamic rsp = JObject.Parse(response.Content);
-            Console.WriteLine(response.Content);
-            Console.WriteLine(rsp.result);
-            Console.WriteLine(rsp.info.timestamp);
-            Console.WriteLine(UnixTimeStampToDateTime((Double) rsp.info.timestamp));
+            //Console.WriteLine(response.Content);
+            //Console.WriteLine(rsp.result);
+            //Console.WriteLine(rsp.info.timestamp);
+            //Console.WriteLine(UnixTimeStampToDateTime((Double) rsp.info.timestamp));
             exchangeTrade.TradedAmount = rsp.result;
             exchangeTrade.ExchangeTime = UnixTimeStampToDateTime((Double)rsp.info.timestamp);
 
-
-            if (ModelState.IsValid)
-            {
+            exchangeTrade.UserName = User.Identity.Name;
+            //Console.WriteLine("User.Identity.Name"+ User.Identity.Name);
+            //exchangeTrade.ClientName = User.Identity.Name;
+            //if (ModelState.IsValid)
+            //{
                 _context.Add(exchangeTrade);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
-            }
-            return View(exchangeTrade);
+            //}
+            //return RedirectToAction(nameof(Index));
+            //return View(exchangeTrade);
         }
 
         // GET: ExchangeTrades/Edit/5
@@ -251,6 +273,18 @@ namespace MeDirectMicroservice.Controllers
             _memoryCache.Remove(cacheKey);
 
             return RedirectToAction("Index");
+        }
+        public bool TradeLimitExceeded()
+        {
+            var trades = from t in _context.ExchangeTrades.ToList() where t.UserName == User.Identity.Name && (DateTime.Now - t.ExchangeTime).TotalMinutes < 60
+                         select t;
+            //trades = trades.Where(t => t.UserName.Equals(User.Identity.Name) && (DateTime.Now - t.ExchangeTime).TotalMinutes < 60);
+            
+            if (trades.Count() > 9)
+                return true;
+            else
+                return false;
+            //return true;
         }
     }
 }

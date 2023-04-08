@@ -3,7 +3,12 @@
 @{
     ViewData["Title"] = "Index";
 }
-
+@if (ViewBag.Limit != null)
+{
+<div class="alert alert-danger" role="alert">
+    @ViewBag.Limit
+</div>
+}
 <h1>Index</h1>
 
 <p>

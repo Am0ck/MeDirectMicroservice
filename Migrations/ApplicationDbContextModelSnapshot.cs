@@ -61,6 +61,10 @@ namespace MeDirectMicroservice.Migrations
                     b.Property<double>("TradedAmount")
                         .HasColumnType("float");
 
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
                     b.ToTable("ExchangeTrades");

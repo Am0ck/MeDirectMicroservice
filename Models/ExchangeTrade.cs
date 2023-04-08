@@ -32,5 +32,8 @@ namespace MeDirectMicroservice.Models
 
         [Required]
         public DateTime ExchangeTime { get; set; }
+
+        [Required]
+        public string UserName { get; set; }
     }
 }

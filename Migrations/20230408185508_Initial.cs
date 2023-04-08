@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace MeDirectMicroservice.Migrations
 {
     /// <inheritdoc />
-    public partial class CreateIdentitySchema : Migration
+    public partial class Initial : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -48,6 +48,36 @@ namespace MeDirectMicroservice.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_AspNetUsers", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Currencies",
+                columns: table => new
+                {
+                    CurrencySymbol = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    CountryName = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Currencies", x => x.CurrencySymbol);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ExchangeTrades",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    AmountToTrade = table.Column<double>(type: "float", nullable: false),
+                    CurrencyFrom = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    CurrencyTo = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    TradedAmount = table.Column<double>(type: "float", nullable: false),
+                    ExchangeTime = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UserName = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ExchangeTrades", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -213,6 +243,12 @@ namespace MeDirectMicroservice.Migrations
 
             migrationBuilder.DropTable(
                 name: "AspNetUserTokens");
+
+            migrationBuilder.DropTable(
+                name: "Currencies");
+
+            migrationBuilder.DropTable(
+                name: "ExchangeTrades");
 
             migrationBuilder.DropTable(
                 name: "AspNetRoles");
