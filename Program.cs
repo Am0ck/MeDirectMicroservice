@@ -1,6 +1,8 @@
 using MeDirectMicroservice.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using MeDirectMicroservice.DataAccess.Interfaces;
+using MeDirectMicroservice.DataAccess.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 var TradingApiKey = builder.Configuration["ServiceApiKey"];
@@ -17,6 +19,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = true)
     .AddEntityFrameworkStores<ApplicationDbContext>();
+builder.Services.AddScoped<ITradeRepository, TradeRepository>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

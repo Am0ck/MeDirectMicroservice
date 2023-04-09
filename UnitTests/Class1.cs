@@ -1,5 +1,7 @@
 ﻿using MeDirectMicroservice.Controllers;
 using MeDirectMicroservice.Data;
+using MeDirectMicroservice.DataAccess.Interfaces;
+using MeDirectMicroservice.DataAccess.Repositories;
 using MeDirectMicroservice.Utilities;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
@@ -10,20 +12,6 @@ namespace UnitTests
 {
     public class Class1
     {
-        //[SetUp]
-        //public void Setup()
-        //{
-        //    private readonly IMemoryCache _memoryCache;
-        //    private readonly IConfiguration _config;
-        //    private readonly ILogger<ExchangeTradesController> _logger;
-        //    private readonly ApplicationDbContext _context;
-        //    //ExchangeTradesController etc = new ExchangeTradesController(_context, _memoryCache, _logger, _config);
-        //}
-        //[Test]
-        //public void LimitTest()
-        //{
-        //    //etc.Limit
-        //}
         [Test]
         public void UnixTimeStampToDateTime_Works()
         {

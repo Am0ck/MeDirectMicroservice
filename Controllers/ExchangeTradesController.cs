@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Identity;
 using NuGet.Protocol;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using MeDirectMicroservice.Utilities;
+using MeDirectMicroservice.DataAccess.Interfaces;
 
 namespace MeDirectMicroservice.Controllers
 {
@@ -27,6 +28,8 @@ namespace MeDirectMicroservice.Controllers
         private readonly IConfiguration _config;
         private readonly ILogger<ExchangeTradesController> _logger;
         private readonly ApplicationDbContext _context;
+        private readonly ITradeRepository _tradeRepository;
+
         private string baseUrl = "https://api.apilayer.com/exchangerates_data/";
         private string cacheKey = "currencyCacheKey";
         //public static DateTime UnixTimeStampToDateTime(double unixTimeStamp)
@@ -37,12 +40,13 @@ namespace MeDirectMicroservice.Controllers
         //}
 
 
-        public ExchangeTradesController(ApplicationDbContext context, IMemoryCache memoryCache, ILogger<ExchangeTradesController> logger, IConfiguration config)
+        public ExchangeTradesController(ApplicationDbContext context, IMemoryCache memoryCache, ILogger<ExchangeTradesController> logger, IConfiguration config, ITradeRepository tradeRepository)
         {
             _logger = logger;
             _context = context;
             _memoryCache = memoryCache;
             _config = config;
+            _tradeRepository = tradeRepository;
         }
 
         // GET: ExchangeTrades
@@ -93,7 +97,7 @@ namespace MeDirectMicroservice.Controllers
 
 
                 var request = new RestRequest();
-                request.AddHeader("apikey", _config["ServiceApiKe"]);
+                request.AddHeader("apikey", _config["ServiceApiKey"]);
                 _logger.Log(LogLevel.Information, "Sending Request to: "+ baseUrl + "symbols");
                 try
                 {
@@ -136,7 +140,7 @@ namespace MeDirectMicroservice.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(ExchangeTrade exchangeTrade, string CurrencyFrom, string CurrencyTo)
         {
-            if (TradeLimitExceeded())
+            if (_tradeRepository.TradeLimitExceeded(User.Identity.Name))
             {
                 TempData["message"] = "Hourly limit exceeded. Please wait an hour past your last trade making another exchange trade";
                 return RedirectToAction(nameof(Index));
@@ -265,15 +269,15 @@ namespace MeDirectMicroservice.Controllers
 
             return RedirectToAction("Index");
         }
-        public bool TradeLimitExceeded()
-        {
-            var trades = from t in _context.ExchangeTrades.ToList() where t.UserName == User.Identity.Name && (DateTime.Now - t.ExchangeTime).TotalMinutes < 60
-                         select t;
+        //public bool TradeLimitExceeded()
+        //{
+        //    var trades = from t in _context.ExchangeTrades.ToList() where t.UserName == User.Identity.Name && (DateTime.Now - t.ExchangeTime).TotalMinutes < 60
+        //                 select t;
             
-            if (trades.Count() > 9)
-                return true;
-            else
-                return false;
-        }
+        //    if (trades.Count() > 9)
+        //        return true;
+        //    else
+        //        return false;
+        //}
     }
 }
