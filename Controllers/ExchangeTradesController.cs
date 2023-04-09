@@ -24,27 +24,31 @@ namespace MeDirectMicroservice.Controllers
     public class ExchangeTradesController : Controller
     {
         private readonly IMemoryCache _memoryCache;
+        private readonly IConfiguration _config;
 
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ILogger<ExchangeTradesController> _logger;
+
+        //private readonly UserManager<ApplicationUser> _userManager;
+        
+
 
         private readonly ApplicationDbContext _context;
         private string baseUrl = "https://api.apilayer.com/exchangerates_data/";
         private string cacheKey = "currencyCacheKey";
-        //                          https://api.apilayer.com/exchangerates_data/symbols
-        //private string baseUrl = "https://api.apilayer.com/exchangerates_data/convert?";
         private static DateTime UnixTimeStampToDateTime(double unixTimeStamp)
         {
-            // Unix timestamp is seconds past epoch
             DateTime dateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
             dateTime = dateTime.AddSeconds(unixTimeStamp).ToLocalTime();
             return dateTime;
         }
 
 
-        public ExchangeTradesController(ApplicationDbContext context, IMemoryCache memoryCache)
+        public ExchangeTradesController(ApplicationDbContext context, IMemoryCache memoryCache, ILogger<ExchangeTradesController> logger, IConfiguration config)
         {
+            _logger = logger;
             _context = context;
             _memoryCache = memoryCache;
+            _config = config;
         }
 
         // GET: ExchangeTrades
@@ -79,51 +83,67 @@ namespace MeDirectMicroservice.Controllers
         // GET: ExchangeTrades/Create
         public IActionResult Create()
         {
+            ViewBag.Error = TempData["Error"] as string;
             //List<Currency> list = new List<Currency>();
             if (_memoryCache.TryGetValue(cacheKey, out List<string> currencies))
             {
-                Console.WriteLine("Found currencies in Cache");
-                Console.WriteLine("LOADING currencies FROM Cache");
+                _logger.Log(LogLevel.Information, "Found currencies in cache.");
+                ////Console.WriteLine("Found currencies in Cache");
+                ////Console.WriteLine("LOADING currencies FROM Cache");
                 ViewBag.symbols = currencies.AsEnumerable();
+                return View();
             }
             else 
             {
-                Console.WriteLine("LOADING currencies FROM API");
+                _logger.Log(LogLevel.Information, "No Currency symbols found in cache. Retreiving list from API...");
+                //Console.WriteLine("LOADING currencies FROM API");
                 //List<Currency> list = new List<Currency>();
                 List<string> list = new List<string>();
                 var client = new RestClient(baseUrl + "symbols");
                 //client.Timeout = -1;
 
-                var request = new RestRequest();
-                request.AddHeader("apikey", "0VLlhN0Nmh11ulWksWNhl1C9OPqY1DSh");
 
-                var response = client.Execute(request);
-                //Console.WriteLine(response.Content);
-                dynamic rsp = JObject.Parse(response.Content);
-                //Console.WriteLine(response.Content);
-                //Console.WriteLine(rsp.symbols.ToString());
-                //foreach
-                //currencies = JsonConvert.DeserializeObject<List<Currency>>(rsp.symbols);
-                var cd = JsonConvert.DeserializeObject<Dictionary<string,string>>(rsp.symbols.ToString());
-               //JObject jo = JObject.Parse(rsp.symbols.ToString());
-                foreach (var key in cd.Keys)
+                var request = new RestRequest();
+                request.AddHeader("apikey", _config["ServiceApiKey"]);
+                _logger.Log(LogLevel.Information, "Sending Request to: "+ baseUrl + "symbols");
+                try
                 {
-                    //Currency curr = new Currency();
-                    //curr.CurrencySymbol = key;
-                    //curr.CountryName = cd[key];
-                    list.Add(cd[key]+" ("+key+")");
-                    //Console.WriteLine(key+" : " + cd[key]);
+                    var response = client.Execute(request);
+
+
+                    ////Console.WriteLine(response.Content);
+                    dynamic rsp = JObject.Parse(response.Content);
+                    ////Console.WriteLine(response.Content);
+                    ////Console.WriteLine(rsp.symbols.ToString());
+                    //foreach
+                    //currencies = JsonConvert.DeserializeObject<List<Currency>>(rsp.symbols);
+                    var cd = JsonConvert.DeserializeObject<Dictionary<string, string>>(rsp.symbols.ToString());
+                    //JObject jo = JObject.Parse(rsp.symbols.ToString());
+                    foreach (var key in cd.Keys)
+                    {
+                        //Currency curr = new Currency();
+                        //curr.CurrencySymbol = key;
+                        //curr.CountryName = cd[key];
+                        list.Add(cd[key] + " (" + key + ")");
+                        ////Console.WriteLine(key+" : " + cd[key]);
+                    }
+                    var cacheEntryOptions = new MemoryCacheEntryOptions()
+                            .SetSlidingExpiration(TimeSpan.FromSeconds(3600))
+                            .SetAbsoluteExpiration(TimeSpan.FromSeconds(3600))
+                            .SetPriority(CacheItemPriority.Normal);
+                    _memoryCache.Set(cacheKey, list, cacheEntryOptions);
+                    ViewBag.symbols = list.AsEnumerable();
+                    return View();
                 }
-                var cacheEntryOptions = new MemoryCacheEntryOptions()
-                        .SetSlidingExpiration(TimeSpan.FromSeconds(3600))
-                        .SetAbsoluteExpiration(TimeSpan.FromSeconds(3600))
-                        .SetPriority(CacheItemPriority.Normal);
-                _memoryCache.Set(cacheKey, list, cacheEntryOptions);
-                ViewBag.symbols = list.AsEnumerable();
-                return View();
+                catch(Exception e)
+                {
+                    _logger.Log(LogLevel.Error, ""+e);
+                    
+                }
+                return RedirectToAction(nameof(Index));
             }
-           
-            return View();
+
+            //return RedirectToAction(nameof(Index));
         }
 
         // POST: ExchangeTrades/Create
@@ -140,30 +160,36 @@ namespace MeDirectMicroservice.Controllers
                 TempData["message"] = "Hourly limit exceeded. Please wait an hour past your last trade making another exchange trade";
                 return RedirectToAction(nameof(Index));
             }
+            if(CurrencyFrom.Equals(CurrencyTo))
+            {
+                TempData["Error"] = "An exchange trade requires 2 different Currencies";
+                _logger.Log(LogLevel.Warning, "User attempted to create a trade from and to the same currency");
+                return RedirectToAction(nameof(Create));
+            }
             //https://api.apilayer.com/exchangerates_data/convert?
-            Console.WriteLine("CurrencyFrom: " + CurrencyFrom.Split('(', ')')[1]);
-            Console.WriteLine("CurrencyTo: " + CurrencyTo.Split('(', ')')[1]);
+            //Console.WriteLine("CurrencyFrom: " + CurrencyFrom.Split('(', ')')[1]);
+            //Console.WriteLine("CurrencyTo: " + CurrencyTo.Split('(', ')')[1]);
             string endpoint = baseUrl + "convert?to=" + CurrencyTo.Split('(', ')')[1] + "&from=" + CurrencyFrom.Split('(', ')')[1] + "&amount=" + exchangeTrade.AmountToTrade;
             //var client = new RestClient(baseUrl+ "convert?to=" + exchangeTrade.CurrencyTo+"&from="+exchangeTrade.CurrencyFrom+"&amount="+exchangeTrade.AmountToTrade);
-            Console.WriteLine("ENDPOINT: " + endpoint);
+            //Console.WriteLine("ENDPOINT: " + endpoint);
             var client = new RestClient(endpoint);
             //client.Timeout = -1;
 
             var request = new RestRequest();
-            request.AddHeader("apikey", "0VLlhN0Nmh11ulWksWNhl1C9OPqY1DSh");
+            request.AddHeader("apikey", _config["ServiceApiKey"]);
 
             var response = client.Execute(request);
-            //Console.WriteLine(response.Content);
+            ////Console.WriteLine(response.Content);
             dynamic rsp = JObject.Parse(response.Content);
-            //Console.WriteLine(response.Content);
-            //Console.WriteLine(rsp.result);
-            //Console.WriteLine(rsp.info.timestamp);
-            //Console.WriteLine(UnixTimeStampToDateTime((Double) rsp.info.timestamp));
+            ////Console.WriteLine(response.Content);
+            ////Console.WriteLine(rsp.result);
+            ////Console.WriteLine(rsp.info.timestamp);
+            ////Console.WriteLine(UnixTimeStampToDateTime((Double) rsp.info.timestamp));
             exchangeTrade.TradedAmount = rsp.result;
             exchangeTrade.ExchangeTime = UnixTimeStampToDateTime((Double)rsp.info.timestamp);
 
             exchangeTrade.UserName = User.Identity.Name;
-            //Console.WriteLine("User.Identity.Name"+ User.Identity.Name);
+            ////Console.WriteLine("User.Identity.Name"+ User.Identity.Name);
             //exchangeTrade.ClientName = User.Identity.Name;
             //if (ModelState.IsValid)
             //{

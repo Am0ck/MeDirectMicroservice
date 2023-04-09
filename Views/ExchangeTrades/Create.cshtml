@@ -3,7 +3,12 @@
 @{
     ViewData["Title"] = "Create";
 }
-
+@if (ViewBag.Error != null)
+{
+    <div class="alert alert-danger" role="alert">
+        @ViewBag.Error
+    </div>
+}
 <h1>Create</h1>
 
 <h4>ExchangeTrade</h4>
@@ -17,26 +22,22 @@
                 <input asp-for="AmountToTrade" class="form-control" />
                 <span asp-validation-for="AmountToTrade" class="text-danger"></span>
             </div>
-            <div class="form-group">
-                <label asp-for="CurrencyFrom" class="control-label"></label>
-                @Html.DropDownList("CurrencyFrom", new SelectList(ViewBag.symbols))
-                <span asp-validation-for="CurrencyFrom" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="CurrencyTo" class="control-label"></label>
-                <div class="col-md-10">
-                    @Html.DropDownList("CurrencyTo", new SelectList(ViewBag.symbols))
+            @if (ViewBag.symbols != null)
+            {
+                <div class="form-group">
+                    <label asp-for="CurrencyFrom" class="control-label"></label>
+                    @Html.DropDownList("CurrencyFrom", new SelectList(ViewBag.symbols))
+                    <span asp-validation-for="CurrencyFrom" class="text-danger"></span>
                 </div>
-                <!--
-                foreach (var item in ViewBag.symbols)
+                <div class="form-group">
+                    <label asp-for="CurrencyTo" class="control-label"></label>
+                    <div class="col-md-10">
+                    @Html.DropDownList("CurrencyTo", new SelectList(ViewBag.symbols))
+                    </div>
+                    <span asp-validation-for="CurrencyTo" class="text-danger"></span>
 
-                {
-                    <div> item.CurrencySymbol </div>
-                }-->
-
-                <!--<input asp-for="CurrencyTo" class="form-control" />-->
-                <span asp-validation-for="CurrencyTo" class="text-danger"></span>
-            </div>
+                </div>
+            }
             <div class="form-group">
                 <input type="submit" value="Create" class="btn btn-primary" />
             </div>
