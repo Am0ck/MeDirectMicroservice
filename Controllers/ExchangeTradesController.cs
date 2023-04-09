@@ -105,6 +105,7 @@ namespace MeDirectMicroservice.Controllers
 
                 var request = new RestRequest();
                 request.AddHeader("apikey", _config["ServiceApiKey"]);
+                Console.WriteLine("FOUND KEY: "+_config["ServiceApiKey"]);
                 _logger.Log(LogLevel.Information, "Sending Request to: "+ baseUrl + "symbols");
                 try
                 {
@@ -113,7 +114,7 @@ namespace MeDirectMicroservice.Controllers
 
                     ////Console.WriteLine(response.Content);
                     dynamic rsp = JObject.Parse(response.Content);
-                    ////Console.WriteLine(response.Content);
+                    Console.WriteLine(response.Content);
                     ////Console.WriteLine(rsp.symbols.ToString());
                     //foreach
                     //currencies = JsonConvert.DeserializeObject<List<Currency>>(rsp.symbols);
@@ -135,10 +136,13 @@ namespace MeDirectMicroservice.Controllers
                     ViewBag.symbols = list.AsEnumerable();
                     return View();
                 }
-                catch(Exception e)
+                catch(ArgumentNullException ne)
                 {
-                    _logger.Log(LogLevel.Error, ""+e);
-                    
+                    _logger.Log(LogLevel.Error, "Trouble getting respone from Exchange Trade Api.");
+                }
+                catch (Exception e)
+                {
+                    _logger.Log(LogLevel.Error, ""+e);                   
                 }
                 return RedirectToAction(nameof(Index));
             }
