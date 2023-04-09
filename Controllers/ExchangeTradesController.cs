@@ -32,12 +32,6 @@ namespace MeDirectMicroservice.Controllers
 
         private string baseUrl = "https://api.apilayer.com/exchangerates_data/";
         private string cacheKey = "currencyCacheKey";
-        //public static DateTime UnixTimeStampToDateTime(double unixTimeStamp)
-        //{
-        //    DateTime dateTime = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc);
-        //    dateTime = dateTime.AddSeconds(unixTimeStamp).ToLocalTime();
-        //    return dateTime;
-        //}
 
 
         public ExchangeTradesController(ApplicationDbContext context, IMemoryCache memoryCache, ILogger<ExchangeTradesController> logger, IConfiguration config, ITradeRepository tradeRepository)
@@ -269,15 +263,5 @@ namespace MeDirectMicroservice.Controllers
 
             return RedirectToAction("Index");
         }
-        //public bool TradeLimitExceeded()
-        //{
-        //    var trades = from t in _context.ExchangeTrades.ToList() where t.UserName == User.Identity.Name && (DateTime.Now - t.ExchangeTime).TotalMinutes < 60
-        //                 select t;
-            
-        //    if (trades.Count() > 9)
-        //        return true;
-        //    else
-        //        return false;
-        //}
     }
 }
